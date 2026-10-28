@@ -1,0 +1,14 @@
+.env
+*.db
+__pycache__/
+.venv/
+node_modules/
+dist/
+media/
+models/
+backend/models/
+*.pt
+*.egg-info/
+.pytest_cache/
+.vite/
+coverage/

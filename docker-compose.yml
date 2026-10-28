@@ -1,0 +1,55 @@
+# Local, CPU-only stack:  docker compose up --build
+# First run: docker compose exec ollama ollama pull qwen2.5:3b-instruct
+#            docker compose exec backend python scripts/download_models.py
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: foodverse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-foodverse}
+      POSTGRES_DB: foodverse
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foodverse"]
+      interval: 5s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes: [ollama:/root/.ollama]
+    ports: ["11434:11434"]
+
+  backend: &backend
+    build: ./backend
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql+psycopg://foodverse:${POSTGRES_PASSWORD:-foodverse}@db:5432/foodverse
+      OLLAMA_URL: http://ollama:11434
+      MEDIA_ROOT: /app/media
+      FRESHNESS_MODELS_DIR: /app/models/freshness
+    depends_on:
+      db: {condition: service_healthy}
+    volumes: [media:/app/media, models:/app/models, hfcache:/home/app/.cache]
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 5
+
+  worker:
+    <<: *backend
+    ports: []
+    healthcheck: {disable: true}
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      backend: {condition: service_healthy}   # backend runs the migrations first
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
+    ports: ["5173:80"]
+    depends_on: [backend]
+
+volumes: {pgdata: {}, ollama: {}, media: {}, models: {}, hfcache: {}}

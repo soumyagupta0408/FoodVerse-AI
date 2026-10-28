@@ -1,0 +1,6 @@
+# Heavy, optional: needed for real recognition / hygiene / speech. CPU-only wheels:
+#   pip install -r requirements-ml.txt --extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.3
+torchvision>=0.18
+transformers>=4.44
+faster-whisper>=1.0
